@@ -30,7 +30,7 @@ export const register = async (
 
     // Generate token
     const token = generateToken({
-      id: user._id.toString(),
+      id: (user._id as string | { toString(): string }).toString(),
       email: user.email,
     });
 
@@ -84,7 +84,7 @@ export const login = async (
 
     // Generate token
     const token = generateToken({
-      id: user._id.toString(),
+      id: (user._id as string | { toString(): string }).toString(),
       email: user.email,
     });
 

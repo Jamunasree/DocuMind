@@ -1,5 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
 
 export interface User {
   id: string;
@@ -25,11 +26,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user_data');
-    if (storedUser) {
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data');
+    
+    if (token && userData) {
       try {
-        setUser(JSON.parse(storedUser));
+        setUser(JSON.parse(userData));
       } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
       }
     }
@@ -37,47 +42,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (email === 'demo@example.com' && password === 'password') {
-      const userData: User = {
-        id: '1',
-        email: email,
-        name: 'Demo User',
-        role: 'Admin'
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      
+      const { user: userData, token } = response.data.data;
+      
+      const formattedUser: User = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
       };
-      setUser(userData);
-      localStorage.setItem('user_data', JSON.stringify(userData));
-    } else {
-      throw new Error('Invalid email or password');
+      
+      setUser(formattedUser);
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user_data', JSON.stringify(formattedUser));
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Login failed');
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const userData: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email: email,
-      name: name,
-      role: 'User'
-    };
-    setUser(userData);
-    localStorage.setItem('user_data', JSON.stringify(userData));
+    try {
+      const response = await api.post('/auth/register', { name, email, password });
+      
+      const { user: userData, token } = response.data.data;
+      
+      const formattedUser: User = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+      };
+      
+      setUser(formattedUser);
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user_data', JSON.stringify(formattedUser));
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Registration failed');
+    }
   };
 
   const logout = async () => {
-    setUser(null);
-    localStorage.removeItem('user_data');
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+    }
   };
 
-  const updateUserProfile = useCallback((updates: Partial<User>) => {
-    setUser(prev => {
-      if (!prev) return null;
-      const updatedUser = { ...prev, ...updates };
-      localStorage.setItem('user_data', JSON.stringify(updatedUser));
-      return updatedUser;
-    });
+  const updateUserProfile = useCallback(async (updates: Partial<User>) => {
+    try {
+      const response = await api.put('/users/profile', updates);
+      const updatedUser = response.data.data;
+      
+      const formattedUser: User = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+      };
+      
+      setUser(formattedUser);
+      localStorage.setItem('user_data', JSON.stringify(formattedUser));
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
   }, []);
 
   return (

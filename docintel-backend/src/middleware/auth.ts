@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
 import { ErrorResponse } from '../utils/errorResponse';
 import User from '../models/User';
+import { IUser } from '../types/index';
 
 export const protect = async (
   req: Request,
@@ -32,7 +33,7 @@ export const protect = async (
       }
 
       req.user = {
-        _id: user._id.toString(),
+        _id: (user._id as string | number | { toString(): string }).toString(),
         email: user.email,
         name: user.name,
         role: user.role,
